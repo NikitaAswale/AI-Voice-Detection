@@ -76,13 +76,13 @@ fun SpeechApp() {
                 title = {
                     Text(
                         "Voice Assistant",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 28.sp,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -91,21 +91,13 @@ fun SpeechApp() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.surface
-                        )
-                    )
-                )
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Tab Row
             TabRow(
                 selectedTabIndex = selectedTab,
                 modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -114,7 +106,8 @@ fun SpeechApp() {
                         text = {
                             Text(
                                 title,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 16.sp
                             )
                         },
                         icon = {
@@ -122,26 +115,30 @@ fun SpeechApp() {
                                 imageVector = if (index == 0) Icons.AutoMirrored.Rounded.VolumeUp else Icons.Rounded.Mic,
                                 contentDescription = title
                             )
-                        }
+                        },
+                        selectedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                     )
                 }
             }
             
-            // Content based on selected tab
             AnimatedContent(
                 targetState = selectedTab,
                 modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
                     slideInHorizontally(
-                        initialOffsetX = { if (targetState > initialState) 300 else -300 }
+                        initialOffsetX = { fullWidth -> if (targetState > initialState) fullWidth else -fullWidth }
                     ) + fadeIn() togetherWith slideOutHorizontally(
-                        targetOffsetX = { if (targetState > initialState) -300 else 300 }
+                        targetOffsetX = { fullWidth -> if (targetState > initialState) -fullWidth else fullWidth }
                     ) + fadeOut()
                 }
             ) { tabIndex ->
                 when (tabIndex) {
                     0 -> TextToSpeechScreen(viewModel)
-                    1 -> SpeechToTextScreen(viewModel, recordAudioPermissionState.status.isGranted) {
+                    1 -> SpeechToTextScreen(
+                        viewModel,
+                        recordAudioPermissionState.status.isGranted
+                    ) {
                         recordAudioPermissionState.launchPermissionRequest()
                     }
                 }
@@ -160,20 +157,21 @@ fun TextToSpeechScreen(viewModel: SpeechViewModel) {
     val selectedLanguage by viewModel.selectedLanguage
     val availableVoices by viewModel.availableVoices
     val selectedVoice by viewModel.selectedVoice
-    
+
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showVoiceDialog by remember { mutableStateOf(false) }
-    
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            // Input Card
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -181,330 +179,249 @@ fun TextToSpeechScreen(viewModel: SpeechViewModel) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Enter Text to Speak",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        "Text to Speech",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { viewModel.inputText.value = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Type something to convert to speech...") },
-                        minLines = 3,
-                        maxLines = 6,
+                        placeholder = { Text("Enter text to convert to speech") },
+                        minLines = 4,
+                        maxLines = 8,
                         shape = RoundedCornerShape(12.dp)
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Language Selection
-                        OutlinedButton(
-                            onClick = { showLanguageDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Rounded.Language, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(selectedLanguage?.displayLanguage ?: "Language")
-                        }
-                        
-                        // Voice Selection
-                        OutlinedButton(
-                            onClick = { showVoiceDialog = true },
-                            modifier = Modifier.weight(1f),
-                            enabled = availableVoices.isNotEmpty()
-                        ) {
-                            Icon(Icons.Rounded.RecordVoiceOver, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Voice")
-                        }
-                    }
-                }
-            }
-        }
-        
-        item {
-            // Control Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
-            ) {
-                // Speak Button
-                AnimatedFloatingActionButton(
-                    onClick = { viewModel.speak(inputText) },
-                    isAnimated = isSpeaking,
-                    icon = if (isSpeaking) Icons.AutoMirrored.Rounded.VolumeUp else Icons.Rounded.PlayArrow,
-                    text = if (isSpeaking) "Speaking..." else "Speak",
-                    enabled = isTtsInitialized && inputText.isNotEmpty(),
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-                
-                // Stop Button
-                AnimatedFloatingActionButton(
-                    onClick = { viewModel.stopSpeaking() },
-                    isAnimated = false,
-                    icon = Icons.Rounded.Stop,
-                    text = "Stop",
-                    enabled = isSpeaking,
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-        
-        item {
-            // Status Card
-            if (!isTtsInitialized) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Initializing Text-to-Speech...")
-                    }
-                }
-            }
-        }
-    }
-    
-    // Language Selection Dialog
-    if (showLanguageDialog) {
-        LanguageSelectionDialog(
-            languages = availableLanguages,
-            selectedLanguage = selectedLanguage,
-            onLanguageSelected = { viewModel.setLanguage(it) },
-            onDismiss = { showLanguageDialog = false }
-        )
-    }
-    
-    // Voice Selection Dialog
-    if (showVoiceDialog) {
-        VoiceSelectionDialog(
-            voices = availableVoices.filter { voice ->
-                selectedLanguage?.let { voice.locale.language == it.language } ?: true
-            },
-            selectedVoice = selectedVoice,
-            onVoiceSelected = { viewModel.setVoice(it) },
-            onDismiss = { showVoiceDialog = false }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SpeechToTextScreen(
-    viewModel: SpeechViewModel,
-    hasPermission: Boolean,
-    onRequestPermission: () -> Unit
-) {
-    val isListening by viewModel.isListening
-    val recognizedText by viewModel.recognizedText
-    val sttError by viewModel.sttError
-    val availableSttLanguages by viewModel.availableSttLanguages
-    val selectedSttLanguage by viewModel.selectedSttLanguage
-    
-    var showLanguageDialog by remember { mutableStateOf(false) }
-    
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            // Permission Check
-            if (!hasPermission) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.MicOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Text(
-                            "Microphone Permission Required",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            "Please grant microphone permission to use speech recognition",
-                            textAlign = TextAlign.Center
-                        )
-                        Button(onClick = onRequestPermission) {
-                            Text("Grant Permission")
-                        }
-                    }
-                }
-                return@item
-            }
-        }
-        
-        item {
-            // Language Selection
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "Speech Recognition Settings",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    OutlinedButton(
-                        onClick = { showLanguageDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Rounded.Language, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Language: ${selectedSttLanguage?.displayLanguage ?: "Select Language"}")
-                    }
-                }
-            }
-        }
-        
-        item {
-            // Microphone Button
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                val scale by animateFloatAsState(
-                    targetValue = if (isListening) 1.2f else 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1000),
-                        repeatMode = RepeatMode.Reverse
-                    )
-                )
-                
-                FloatingActionButton(
-                    onClick = {
-                        if (isListening) {
-                            viewModel.stopListening()
-                        } else {
-                            viewModel.startListening()
-                        }
-                    },
-                    modifier = Modifier
-                        .size(80.dp)
-                        .scale(scale),
-                    containerColor = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(
-                        imageVector = if (isListening) Icons.Rounded.MicOff else Icons.Rounded.Mic,
-                        contentDescription = if (isListening) "Stop Listening" else "Start Listening",
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
-        }
-        
-        item {
-            // Status Text
-            Text(
-                text = when {
-                    isListening -> "🎤 Listening... Speak now!"
-                    recognizedText.isNotEmpty() -> "✅ Speech recognized"
-                    sttError.isNotEmpty() -> "❌ Error: $sttError"
-                    else -> "🔘 Tap microphone to start"
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-                fontWeight = FontWeight.Medium
-            )
-        }
-        
-        item {
-            // Results Card
-            if (recognizedText.isNotEmpty() || sttError.isNotEmpty()) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            if (sttError.isNotEmpty()) "Error" else "Recognized Text",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (sttError.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                        )
-                        
-                        if (sttError.isNotEmpty()) {
-                            Text(
-                                sttError,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            Text(
-                                recognizedText,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        if (isSpeaking) {
+                            Button(
+                                onClick = { viewModel.stopSpeaking() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Button(
-                                    onClick = { viewModel.inputText.value = recognizedText },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Rounded.ContentCopy, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Copy to TTS")
-                                }
-                                
-                                OutlinedButton(
-                                    onClick = { viewModel.recognizedText.value = "" },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Rounded.Clear, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Clear")
-                                }
+                                Icon(Icons.Default.Stop, contentDescription = "Stop")
+                                Spacer(Modifier.width(8.dp))
+                                Text("Stop")
+                            }
+                        } else {
+                            Button(
+                                onClick = { viewModel.speak(viewModel.inputText.value) },
+                                modifier = Modifier.weight(1f),
+                                enabled = inputText.isNotBlank() && isTtsInitialized,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = "Speak")
+                                Spacer(Modifier.width(8.dp))
+                                Text("Speak")
                             }
                         }
                     }
                 }
             }
         }
+
+        item {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    // Language Selection
+                    Text("Language", style = MaterialTheme.typography.titleMedium)
+                    DropdownSelector(
+                        selectedValue = selectedLanguage?.displayLanguage ?: "Select Language",
+                        onClick = { showLanguageDialog = true },
+                        enabled = availableLanguages.isNotEmpty()
+                    )
+
+                    // Voice Selection
+                    Text("Voice", style = MaterialTheme.typography.titleMedium)
+                    DropdownSelector(
+                        selectedValue = selectedVoice?.name ?: "Select Voice",
+                        onClick = { showVoiceDialog = true },
+                        enabled = availableVoices.isNotEmpty()
+                    )
+                }
+            }
+        }
     }
-    
-    // Language Selection Dialog
+
     if (showLanguageDialog) {
-        LanguageSelectionDialog(
-            languages = availableSttLanguages,
-            selectedLanguage = selectedSttLanguage,
-            onLanguageSelected = { viewModel.setSttLanguage(it) },
-            onDismiss = { showLanguageDialog = false }
+        SelectionDialog(
+            title = "Select Language",
+            items = availableLanguages,
+            onItemSelected = { lang ->
+                viewModel.setLanguage(lang as Locale)
+                showLanguageDialog = false
+            },
+            onDismiss = { showLanguageDialog = false },
+            itemLabel = { (it as Locale).displayLanguage }
         )
+    }
+
+    if (showVoiceDialog) {
+        SelectionDialog(
+            title = "Select Voice",
+            items = availableVoices,
+            onItemSelected = { voice ->
+                viewModel.setVoice(voice as Voice)
+                showVoiceDialog = false
+            },
+            onDismiss = { showVoiceDialog = false },
+            itemLabel = { (it as Voice).name }
+        )
+    }
+}
+
+@Composable
+fun SpeechToTextScreen(
+    viewModel: SpeechViewModel,
+    hasPermission: Boolean,
+    onPermissionRequest: () -> Unit
+) {
+    val transcribedText by viewModel.transcribedText
+    val isListening by viewModel.isListening
+    val isSttInitialized by viewModel.isSttInitialized
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "pulse"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        if (hasPermission) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    "Speech to Text",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (transcribedText.isEmpty() && !isListening) {
+                            Text(
+                                "Press the microphone to start speaking",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        Text(
+                            transcribedText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 24.dp)
+                    .size(100.dp)
+                    .scale(if (isListening) pulse else 1f)
+                    .clip(CircleShape)
+                    .background(if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+                    .clickable(enabled = isSttInitialized) {
+                        if (isListening) {
+                            viewModel.stopListening()
+                        } else {
+                            viewModel.startListening()
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = if (isListening) "Stop Listening" else "Start Listening",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        } else {
+            PermissionRequestUI(onPermissionRequest)
+        }
+    }
+}
+
+@Composable
+fun PermissionRequestUI(onPermissionRequest: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Warning,
+            contentDescription = "Permission Required",
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.error
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Permission Required",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "This feature requires microphone permission to transcribe your speech. Please grant the permission to continue.",
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onPermissionRequest) {
+            Text("Grant Permission")
+        }
     }
 }
 
@@ -541,102 +458,56 @@ fun AnimatedFloatingActionButton(
 }
 
 @Composable
-fun LanguageSelectionDialog(
-    languages: List<Locale>,
-    selectedLanguage: Locale?,
-    onLanguageSelected: (Locale) -> Unit,
-    onDismiss: () -> Unit
+fun DropdownSelector(
+    selectedValue: String,
+    onClick: () -> Unit,
+    enabled: Boolean
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Language") },
-        text = {
-            LazyColumn {
-                items(languages) { language ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { 
-                                onLanguageSelected(language)
-                                onDismiss()
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = selectedLanguage == language,
-                            onClick = { 
-                                onLanguageSelected(language)
-                                onDismiss()
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "${language.displayLanguage} (${language.displayCountry})",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(selectedValue, fontWeight = FontWeight.Medium)
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
         }
-    )
+    }
 }
 
 @Composable
-fun VoiceSelectionDialog(
-    voices: List<Voice>,
-    selectedVoice: Voice?,
-    onVoiceSelected: (Voice) -> Unit,
-    onDismiss: () -> Unit
+fun <T> SelectionDialog(
+    title: String,
+    items: List<T>,
+    onItemSelected: (T) -> Unit,
+    onDismiss: () -> Unit,
+    itemLabel: @Composable (T) -> String
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Voice") },
+        title = { Text(title, fontWeight = FontWeight.Bold) },
         text = {
             LazyColumn {
-                items(voices) { voice ->
-                    Row(
+                items(items) { item ->
+                    Text(
+                        text = itemLabel(item),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { 
-                                onVoiceSelected(voice)
-                                onDismiss()
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = selectedVoice == voice,
-                            onClick = { 
-                                onVoiceSelected(voice)
-                                onDismiss()
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                voice.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                "${voice.locale.displayLanguage} • Quality: ${voice.quality}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                            .clickable { onItemSelected(item) }
+                            .padding(vertical = 12.dp)
+                    )
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Close")
             }
         }
     )
