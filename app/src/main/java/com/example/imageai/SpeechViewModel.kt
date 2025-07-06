@@ -27,8 +27,9 @@ class SpeechViewModel : ViewModel() {
     
     // STT related
     private var speechRecognizer: SpeechRecognizer? = null
+    var isSttInitialized = mutableStateOf(false)
     var isListening = mutableStateOf(false)
-    var recognizedText = mutableStateOf("")
+    var transcribedText = mutableStateOf("")
     var sttError = mutableStateOf("")
     var availableSttLanguages = mutableStateOf<List<Locale>>(emptyList())
     var selectedSttLanguage = mutableStateOf<Locale?>(null)
@@ -182,7 +183,7 @@ class SpeechViewModel : ViewModel() {
                 override fun onResults(results: Bundle?) {
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     if (!matches.isNullOrEmpty()) {
-                        recognizedText.value = matches[0]
+                        transcribedText.value = matches[0]
                         inputText.value = matches[0]
                     }
                     isListening.value = false
@@ -191,13 +192,14 @@ class SpeechViewModel : ViewModel() {
                 override fun onPartialResults(partialResults: Bundle?) {
                     val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     if (!matches.isNullOrEmpty()) {
-                        recognizedText.value = matches[0]
+                        transcribedText.value = matches[0]
                     }
                 }
                 
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
             
+            isSttInitialized.value = true
             loadSttLanguages()
         }
     }
